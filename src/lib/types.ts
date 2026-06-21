@@ -56,6 +56,26 @@ export interface Job {
   updated_at: string;
 }
 
+export const STAGES: Stage[] = ["saved", "applied", "interviewing", "offer", "rejected"];
+
+export const STAGE_LABELS: Record<Stage, string> = {
+  saved: "Saved",
+  applied: "Applied",
+  interviewing: "Interviewing",
+  offer: "Offer",
+  rejected: "Rejected",
+};
+
+export interface Reminder {
+  id: string;
+  job_id: string;
+  due_at: string;
+  note: string | null;
+  done: boolean;
+  created_at: string;
+  jobs?: { company: string | null; role_title: string | null } | null;
+}
+
 export interface GeneratedContent {
   id: string;
   job_id: string;

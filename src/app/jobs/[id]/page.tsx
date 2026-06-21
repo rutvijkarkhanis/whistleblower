@@ -5,20 +5,22 @@ import { useEffect, useState } from "react";
 import {
   CONTENT_LABELS,
   CONTENT_TYPES,
+  STAGES,
   type ContentType,
   type GeneratedContent,
   type Job,
+  type Reminder,
   type Stage,
   type Tone,
 } from "@/lib/types";
 
 const TONES: Tone[] = ["executive", "founder-to-founder", "direct"];
-const STAGES: Stage[] = ["saved", "applied", "interviewing", "offer", "rejected"];
 
 export default function JobDetail({ params }: { params: { id: string } }) {
   const { id } = params;
   const [job, setJob] = useState<Job | null>(null);
   const [content, setContent] = useState<GeneratedContent[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [tone, setTone] = useState<Tone>("executive");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +35,16 @@ export default function JobDetail({ params }: { params: { id: string } }) {
     const json = await res.json();
     if (res.ok) setContent(json.content ?? []);
   }
+  async function loadReminders() {
+    const res = await fetch(`/api/reminders?job_id=${id}`);
+    const json = await res.json();
+    if (res.ok) setReminders(json.reminders ?? []);
+  }
 
   useEffect(() => {
     loadJob();
     loadContent();
+    loadReminders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -133,6 +141,12 @@ export default function JobDetail({ params }: { params: { id: string } }) {
         </div>
       </section>
 
+      {/* Module 4 — notes + reminders */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <NotesPanel jobId={id} initial={job.notes ?? ""} />
+        <RemindersPanel jobId={id} reminders={reminders} onChange={loadReminders} />
+      </div>
+
       {/* Module 2 — content generation */}
       <section className="card p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -172,6 +186,112 @@ export default function JobDetail({ params }: { params: { id: string } }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function NotesPanel({ jobId, initial }: { jobId: string; initial: string }) {
+  const [notes, setNotes] = useState(initial);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    await fetch(`/api/jobs/${jobId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes }),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1200);
+  }
+
+  return (
+    <section className="card p-4">
+      <h2 className="mb-2 text-sm font-semibold">Notes</h2>
+      <textarea
+        className="input h-28 text-sm"
+        placeholder="Recruiter name, comp expectations, where you found it…"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+      />
+      <div className="mt-2 flex justify-end">
+        <button className="btn-ghost text-xs" onClick={save}>
+          {saved ? "Saved" : "Save notes"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function RemindersPanel({
+  jobId,
+  reminders,
+  onChange,
+}: {
+  jobId: string;
+  reminders: Reminder[];
+  onChange: () => void;
+}) {
+  const [due, setDue] = useState("");
+  const [note, setNote] = useState("");
+
+  async function add() {
+    if (!due) return;
+    await fetch("/api/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, due_at: new Date(due).toISOString(), note }),
+    });
+    setDue("");
+    setNote("");
+    onChange();
+  }
+
+  async function toggle(r: Reminder) {
+    await fetch(`/api/reminders/${r.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: !r.done }),
+    });
+    onChange();
+  }
+
+  async function remove(id: string) {
+    await fetch(`/api/reminders/${id}`, { method: "DELETE" });
+    onChange();
+  }
+
+  return (
+    <section className="card p-4">
+      <h2 className="mb-2 text-sm font-semibold">Follow-up reminders</h2>
+      <ul className="mb-3 space-y-1">
+        {reminders.length === 0 && <li className="text-xs text-slate-400">None set.</li>}
+        {reminders.map((r) => (
+          <li key={r.id} className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={r.done} onChange={() => toggle(r)} />
+              <span className={r.done ? "text-slate-400 line-through" : ""}>
+                {new Date(r.due_at).toLocaleDateString()}
+                {r.note ? ` — ${r.note}` : ""}
+              </span>
+            </label>
+            <button className="text-xs text-slate-400 hover:text-red-500" onClick={() => remove(r.id)}>
+              ✕
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="date" className="rounded-md border border-slate-300 px-2 py-1 text-sm" value={due} onChange={(e) => setDue(e.target.value)} />
+        <input
+          className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm"
+          placeholder="note (optional)"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+        />
+        <button className="btn-ghost text-xs" disabled={!due} onClick={add}>
+          Add
+        </button>
+      </div>
+    </section>
   );
 }
 

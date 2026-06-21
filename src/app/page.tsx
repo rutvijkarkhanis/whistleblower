@@ -1,16 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import type { Job } from "@/lib/types";
-
-const STAGE_COLORS: Record<string, string> = {
-  saved: "bg-slate-100 text-slate-700",
-  applied: "bg-blue-100 text-blue-700",
-  interviewing: "bg-amber-100 text-amber-700",
-  offer: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
-};
+import { useCallback, useEffect, useState } from "react";
+import { STAGE_LABELS, STAGES, type Job, type Reminder, type Stage } from "@/lib/types";
 
 function scoreColor(score: number | null): string {
   if (score == null) return "text-slate-400";
@@ -19,26 +11,38 @@ function scoreColor(score: number | null): string {
   return "text-red-500";
 }
 
+const STAGE_ACCENT: Record<Stage, string> = {
+  saved: "border-t-slate-400",
+  applied: "border-t-blue-400",
+  interviewing: "border-t-amber-400",
+  offer: "border-t-green-500",
+  rejected: "border-t-red-400",
+};
+
 export default function Dashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"text" | "url">("text");
   const [jdText, setJdText] = useState("");
   const [jdUrl, setJdUrl] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/jobs");
-    const json = await res.json();
-    if (res.ok) setJobs(json.jobs ?? []);
+    const [jr, rr] = await Promise.all([fetch("/api/jobs"), fetch("/api/reminders")]);
+    const jj = await jr.json();
+    const rj = await rr.json();
+    if (jr.ok) setJobs(jj.jobs ?? []);
+    if (rr.ok) setReminders(rj.reminders ?? []);
     setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   async function analyze() {
     setAnalyzing(true);
@@ -60,6 +64,25 @@ export default function Dashboard() {
     } finally {
       setAnalyzing(false);
     }
+  }
+
+  // Optimistic drag-to-move between stages
+  async function moveTo(jobId: string, stage: Stage) {
+    setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, stage } : j)));
+    await fetch(`/api/jobs/${jobId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage }),
+    });
+  }
+
+  async function completeReminder(id: string) {
+    setReminders((prev) => prev.filter((r) => r.id !== id));
+    await fetch(`/api/reminders/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ done: true }),
+    });
   }
 
   return (
@@ -86,7 +109,7 @@ export default function Dashboard() {
 
         {mode === "text" ? (
           <textarea
-            className="input h-40 font-mono text-xs"
+            className="input h-32 font-mono text-xs"
             placeholder="Paste the full job description here…"
             value={jdText}
             onChange={(e) => setJdText(e.target.value)}
@@ -113,43 +136,93 @@ export default function Dashboard() {
         </div>
       </section>
 
-      {/* Pipeline list */}
+      {/* Module 4 — follow-up reminders */}
+      {reminders.length > 0 && (
+        <section className="card p-4">
+          <h2 className="mb-2 text-sm font-semibold">⏰ Follow-ups due</h2>
+          <ul className="space-y-1">
+            {reminders.map((r) => {
+              const overdue = new Date(r.due_at) < new Date();
+              return (
+                <li key={r.id} className="flex items-center justify-between text-sm">
+                  <div className="min-w-0">
+                    <span className={overdue ? "font-medium text-red-600" : "text-slate-700"}>
+                      {new Date(r.due_at).toLocaleDateString()}
+                    </span>{" "}
+                    <Link href={`/jobs/${r.job_id}`} className="hover:underline">
+                      {r.jobs?.role_title ?? "Job"} · {r.jobs?.company ?? ""}
+                    </Link>
+                    {r.note && <span className="text-slate-500"> — {r.note}</span>}
+                  </div>
+                  <button className="btn-ghost px-2 py-0.5 text-xs" onClick={() => completeReminder(r.id)}>
+                    Done
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* Module 4 — Kanban board */}
       <section>
         <h2 className="mb-3 text-sm font-semibold">Pipeline ({jobs.length})</h2>
         {loading ? (
           <p className="text-sm text-slate-500">Loading…</p>
-        ) : jobs.length === 0 ? (
-          <p className="text-sm text-slate-500">No jobs yet. Analyze a JD above to get started.</p>
         ) : (
-          <div className="space-y-2">
-            {jobs.map((job) => (
-              <Link
-                key={job.id}
-                href={`/jobs/${job.id}`}
-                className="card flex items-center justify-between p-3 hover:border-ink"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
-                    {job.role_title ?? "Untitled role"}{" "}
-                    <span className="text-slate-400">· {job.company ?? "Unknown"}</span>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            {STAGES.map((stage) => {
+              const col = jobs.filter((j) => j.stage === stage);
+              return (
+                <div
+                  key={stage}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragId) moveTo(dragId, stage);
+                    setDragId(null);
+                  }}
+                  className={`min-h-[120px] rounded-lg border border-t-4 border-slate-200 bg-slate-50/60 p-2 ${STAGE_ACCENT[stage]}`}
+                >
+                  <div className="mb-2 flex items-center justify-between px-1">
+                    <span className="text-xs font-semibold text-slate-600">{STAGE_LABELS[stage]}</span>
+                    <span className="text-xs text-slate-400">{col.length}</span>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <span className={`chip ${STAGE_COLORS[job.stage]}`}>{job.stage}</span>
-                    {job.dubai_signals?.slice(0, 2).map((s, i) => (
-                      <span key={i} className="chip">
-                        🌍 {s.length > 28 ? s.slice(0, 28) + "…" : s}
-                      </span>
+                  <div className="space-y-2">
+                    {col.map((job) => (
+                      <div
+                        key={job.id}
+                        draggable
+                        onDragStart={() => setDragId(job.id)}
+                        onDragEnd={() => setDragId(null)}
+                        className="card cursor-grab p-2 active:cursor-grabbing"
+                      >
+                        <Link href={`/jobs/${job.id}`} className="block">
+                          <div className="flex items-start justify-between gap-1">
+                            <span className="text-xs font-medium leading-tight">
+                              {job.role_title ?? "Untitled"}
+                            </span>
+                            <span className={`shrink-0 text-sm font-bold ${scoreColor(job.fit_score)}`}>
+                              {job.fit_score ?? "—"}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 truncate text-[11px] text-slate-400">
+                            {job.company ?? "Unknown"}
+                          </div>
+                          {job.dubai_signals?.[0] && (
+                            <div className="mt-1 truncate text-[10px] text-slate-500">
+                              🌍 {job.dubai_signals[0]}
+                            </div>
+                          )}
+                        </Link>
+                      </div>
                     ))}
                   </div>
                 </div>
-                <div className={`ml-3 shrink-0 text-right ${scoreColor(job.fit_score)}`}>
-                  <div className="text-2xl font-bold leading-none">{job.fit_score ?? "—"}</div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-400">fit</div>
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
+        <p className="mt-2 text-[11px] text-slate-400">Drag a card between columns to change its stage.</p>
       </section>
     </div>
   );
