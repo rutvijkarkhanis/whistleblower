@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-paper text-ink;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition;
+}
+.btn-primary {
+  @apply btn bg-ink text-white hover:bg-slate-700 disabled:opacity-50;
+}
+.btn-ghost {
+  @apply btn border border-slate-300 bg-white text-ink hover:bg-slate-50 disabled:opacity-50;
+}
+.card {
+  @apply rounded-lg border border-slate-200 bg-white;
+}
+.chip {
+  @apply inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700;
+}
+.input {
+  @apply w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-ink;
+}
