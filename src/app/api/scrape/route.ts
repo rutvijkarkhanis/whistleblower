@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { scrapeJdUrl } from "@/lib/jd";
+import { fetchJobFromUrl } from "@/lib/portals";
 
 export const runtime = "nodejs";
+export const maxDuration = 30;
 
+// POST /api/scrape — preview a portal URL parse without storing it
 export async function POST(req: Request) {
   try {
     const { url } = await req.json();
     if (!url || typeof url !== "string") {
       return NextResponse.json({ error: "url is required" }, { status: 400 });
     }
-    const text = await scrapeJdUrl(url);
-    return NextResponse.json({ text });
+    const parsed = await fetchJobFromUrl(url);
+    return NextResponse.json({ parsed });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to scrape" },

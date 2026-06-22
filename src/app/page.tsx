@@ -23,9 +23,13 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<"text" | "url">("text");
+  const [mode, setMode] = useState<"text" | "url" | "bulk">("text");
   const [jdText, setJdText] = useState("");
   const [jdUrl, setJdUrl] = useState("");
+  const [bulkUrls, setBulkUrls] = useState("");
+  const [bulkResults, setBulkResults] = useState<
+    { url: string; ok: boolean; role_title?: string | null; fit_score?: number | null; error?: string }[]
+  >([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -47,17 +51,31 @@ export default function Dashboard() {
   async function analyze() {
     setAnalyzing(true);
     setError(null);
+    setBulkResults([]);
     try {
-      const body = mode === "url" ? { jd_url: jdUrl } : { jd_text: jdText };
-      const res = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
-      setJdText("");
-      setJdUrl("");
+      if (mode === "bulk") {
+        const urls = bulkUrls.split(/\s*\n\s*/).map((u) => u.trim()).filter(Boolean);
+        const res = await fetch("/api/jobs/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urls }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Failed");
+        setBulkResults(json.results ?? []);
+        setBulkUrls("");
+      } else {
+        const body = mode === "url" ? { jd_url: jdUrl } : { jd_text: jdText };
+        const res = await fetch("/api/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Failed");
+        setJdText("");
+        setJdUrl("");
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
@@ -65,6 +83,9 @@ export default function Dashboard() {
       setAnalyzing(false);
     }
   }
+
+  const canSubmit =
+    mode === "text" ? !!jdText.trim() : mode === "url" ? !!jdUrl.trim() : !!bulkUrls.trim();
 
   // Optimistic drag-to-move between stages
   async function moveTo(jobId: string, stage: Stage) {
@@ -104,6 +125,12 @@ export default function Dashboard() {
             >
               From URL
             </button>
+            <button
+              className={`rounded px-2 py-1 ${mode === "bulk" ? "bg-ink text-white" : "bg-slate-100"}`}
+              onClick={() => setMode("bulk")}
+            >
+              Bulk URLs
+            </button>
           </div>
         </div>
 
@@ -114,24 +141,49 @@ export default function Dashboard() {
             value={jdText}
             onChange={(e) => setJdText(e.target.value)}
           />
-        ) : (
+        ) : mode === "url" ? (
           <input
             className="input"
-            placeholder="https://… (will be scraped)"
+            placeholder="https://… LinkedIn / Indeed / Bayt / GulfTalent / Greenhouse / Lever job URL"
             value={jdUrl}
             onChange={(e) => setJdUrl(e.target.value)}
+          />
+        ) : (
+          <textarea
+            className="input h-32 font-mono text-xs"
+            placeholder={"Paste up to 15 job URLs, one per line…\nhttps://www.linkedin.com/jobs/view/...\nhttps://www.bayt.com/en/..."}
+            value={bulkUrls}
+            onChange={(e) => setBulkUrls(e.target.value)}
           />
         )}
 
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
-        <div className="mt-3 flex justify-end">
-          <button
-            className="btn-primary"
-            disabled={analyzing || (mode === "text" ? !jdText.trim() : !jdUrl.trim())}
-            onClick={analyze}
-          >
-            {analyzing ? "Analyzing…" : "Analyze & save"}
+        {bulkResults.length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs">
+            {bulkResults.map((r, i) => (
+              <li key={i} className="flex items-center justify-between gap-2">
+                <span className="truncate text-slate-500">{r.url}</span>
+                {r.ok ? (
+                  <span className="shrink-0 text-green-600">
+                    ✓ {r.role_title ?? "imported"} · fit {r.fit_score ?? "—"}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-red-500">✕ {r.error}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[11px] text-slate-400">
+            {mode === "bulk"
+              ? "JSON-LD / portal-aware parse, then auto fit-scored."
+              : "LinkedIn/Indeed often gate full text behind login — paste text if a URL comes back empty."}
+          </span>
+          <button className="btn-primary" disabled={analyzing || !canSubmit} onClick={analyze}>
+            {analyzing ? (mode === "bulk" ? "Importing…" : "Analyzing…") : mode === "bulk" ? "Import all" : "Analyze & save"}
           </button>
         </div>
       </section>
@@ -205,8 +257,13 @@ export default function Dashboard() {
                               {job.fit_score ?? "—"}
                             </span>
                           </div>
-                          <div className="mt-0.5 truncate text-[11px] text-slate-400">
-                            {job.company ?? "Unknown"}
+                          <div className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-slate-400">
+                            <span className="truncate">{job.company ?? "Unknown"}</span>
+                            {job.source && job.source !== "manual" && (
+                              <span className="shrink-0 rounded bg-slate-100 px-1 text-[9px] text-slate-500">
+                                {job.source}
+                              </span>
+                            )}
                           </div>
                           {job.dubai_signals?.[0] && (
                             <div className="mt-1 truncate text-[10px] text-slate-500">

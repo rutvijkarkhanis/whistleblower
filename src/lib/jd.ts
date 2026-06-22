@@ -1,10 +1,12 @@
-import * as cheerio from "cheerio";
 import { generateJson } from "./anthropic";
+import { detectSource, fetchJobFromUrl } from "./portals";
 import { SYSTEM_PREAMBLE } from "./profile";
-import type { FitBreakdown } from "./types";
+import { serviceClient } from "./supabase";
+import type { FitBreakdown, Job } from "./types";
 
 // ---------------------------------------------------------------------------
 // Module 1 — JD Intelligence
+// (URL fetching + portal parsing now lives in src/lib/portals.ts)
 // ---------------------------------------------------------------------------
 
 export interface JdAnalysis {
@@ -18,22 +20,6 @@ export interface JdAnalysis {
   dubai_signals: string[];
   fit_score: number;
   fit_breakdown: FitBreakdown;
-}
-
-// Scrape a JD page to plain text with cheerio.
-export async function scrapeJdUrl(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-    },
-  });
-  if (!res.ok) throw new Error(`Failed to fetch JD URL (${res.status})`);
-  const html = await res.text();
-  const $ = cheerio.load(html);
-  $("script, style, noscript, svg, header, footer, nav").remove();
-  const text = $("main").text() || $("body").text();
-  return text.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/[ \t]{2,}/g, " ").trim();
 }
 
 const ANALYSIS_SCHEMA = {
@@ -105,4 +91,50 @@ Scoring guidance:
     schema: ANALYSIS_SCHEMA as unknown as Record<string, unknown>,
     maxTokens: 2000,
   });
+}
+
+// Fetch (if url) -> analyze -> store. Shared by single + bulk import.
+export async function importJob(input: { jd_text?: string; jd_url?: string }): Promise<Job> {
+  let jdText = input.jd_text;
+  let source: string | undefined;
+  let location: string | undefined;
+  let companyHint: string | undefined;
+  let titleHint: string | undefined;
+
+  if (!jdText && input.jd_url) {
+    const parsed = await fetchJobFromUrl(input.jd_url);
+    jdText = parsed.jd_text;
+    source = parsed.source;
+    location = parsed.location;
+    companyHint = parsed.company;
+    titleHint = parsed.role_title;
+  }
+  if (!jdText || jdText.trim().length < 40) {
+    throw new Error("Provide jd_text or a scrapeable jd_url");
+  }
+
+  const analysis = await analyzeJd(jdText);
+  const db = serviceClient();
+  const { data, error } = await db
+    .from("jobs")
+    .insert({
+      company: analysis.company || companyHint || null,
+      role_title: analysis.role_title || titleHint || null,
+      seniority: analysis.seniority,
+      jd_text: jdText,
+      jd_url: input.jd_url ?? null,
+      source: source ?? (input.jd_url ? detectSource(input.jd_url) : "manual"),
+      location: location ?? null,
+      fit_score: analysis.fit_score,
+      fit_breakdown_json: analysis.fit_breakdown,
+      keywords: analysis.keywords,
+      must_haves: analysis.must_haves,
+      nice_to_haves: analysis.nice_to_haves,
+      red_flags: analysis.red_flags,
+      dubai_signals: analysis.dubai_signals,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Job;
 }

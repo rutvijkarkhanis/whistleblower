@@ -99,6 +99,18 @@ export default function JobDetail({ params }: { params: { id: string } }) {
             <h1 className="text-lg font-semibold">{job.role_title}</h1>
             <p className="text-sm text-slate-500">
               {job.company} · {job.seniority}
+              {job.location ? ` · ${job.location}` : ""}
+            </p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {job.source && job.source !== "manual" ? `via ${job.source}` : "manual entry"}
+              {job.jd_url ? (
+                <>
+                  {" · "}
+                  <a href={job.jd_url} target="_blank" rel="noreferrer" className="hover:underline">
+                    original post ↗
+                  </a>
+                </>
+              ) : null}
             </p>
           </div>
           <div className="text-right">

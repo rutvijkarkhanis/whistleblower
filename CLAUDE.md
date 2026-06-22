@@ -20,9 +20,9 @@ Next.js 14 (App Router) + TypeScript · Supabase (auth/db/storage) · Anthropic 
 
 | Module | What | Status |
 |---|---|---|
-| 1 — JD Intelligence | paste/scrape JD → extract + fit score → `jobs` | ✅ built |
+| 1 — JD Intelligence | paste / single-URL / bulk-URL import (portal-aware: LinkedIn, Indeed, Bayt, GulfTalent, Naukri Gulf, Greenhouse, Lever, Ashby via JSON-LD) → extract + fit score → `jobs` | ✅ built |
 | 2 — Content Generation | cover letter, LinkedIn DMs, cold email seq, WhatsApp, interview STAR, salary script → `generated_content` | ✅ built |
-| 3 — Outreach Automation | sequence builder, Unipile/Gmail/Twilio sends, `outreach_log`, reply webhooks | ⏳ schema ready; **paid APIs not wired — confirm before enabling** |
+| 3 — Outreach Automation | sequence builder, Unipile/Gmail/Twilio sends, `outreach_log`, reply webhooks | ⏳ schema ready; **LinkedIn outreach + sends need Unipile/Gmail/Twilio (paid) — confirm before enabling** |
 | 4 — Pipeline CRM | Kanban (drag between stages), per-job notes, follow-up reminders on dashboard | ✅ built |
 | 5 — Analytics | reply rates, funnel, best variants | ⏳ pending |
 | 6 — Dubai Intelligence | Apollo enrichment, visa heuristics, `salary_benchmarks` | ⏳ benchmarks seeded; **Apollo not wired — confirm before enabling** |
@@ -30,8 +30,8 @@ Next.js 14 (App Router) + TypeScript · Supabase (auth/db/storage) · Anthropic 
 ## Layout
 
 ```
-src/lib/        profile, supabase, anthropic clients; jd (M1) + content (M2) logic; types
-src/app/api/    jobs, jobs/[id], jobs/[id]/content, content/[id], scrape, reminders, reminders/[id]
+src/lib/        profile, supabase, anthropic clients; portals (URL import) + jd (M1) + content (M2) logic; types
+src/app/api/    jobs, jobs/import, jobs/[id], jobs/[id]/content, content/[id], scrape, reminders, reminders/[id]
 src/app/        dashboard (page.tsx) + job detail (jobs/[id]/page.tsx)
 supabase/migrations/  0001_init.sql (8 tables + reminders), 0002_seed.sql (profile + AED benchmarks)
 ```

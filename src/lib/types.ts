@@ -43,6 +43,8 @@ export interface Job {
   seniority: string | null;
   jd_text: string | null;
   jd_url: string | null;
+  source: string | null;
+  location: string | null;
   fit_score: number | null;
   fit_breakdown_json: FitBreakdown | null;
   keywords: string[] | null;
