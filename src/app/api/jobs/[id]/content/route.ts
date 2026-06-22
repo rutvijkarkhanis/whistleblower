@@ -4,7 +4,9 @@ import { serviceClient } from "@/lib/supabase";
 import { CONTENT_TYPES, type ContentType, type Job, type Tone } from "@/lib/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+// Keep within free-tier (Vercel Hobby) 60s function cap. The client requests
+// one content type per call, so a single generation comfortably fits.
+export const maxDuration = 60;
 
 type Ctx = { params: { id: string } };
 

@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { importJob } from "@/lib/jd";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+// Free-tier (Vercel Hobby) caps functions at 60s. The dashboard imports URLs
+// one per request to stay safely under that; this batch endpoint stays for
+// Pro / self-host use and is capped low.
+export const maxDuration = 60;
 
-const MAX_URLS = 15;
+const MAX_URLS = 4;
 
 // POST /api/jobs/import — bulk import from a list of portal URLs.
 // body: { urls: string[] }

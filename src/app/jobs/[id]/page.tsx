@@ -54,8 +54,8 @@ export default function JobDetail({ params }: { params: { id: string } }) {
     latest.set(c.type, c);
   }
 
-  async function generate(types?: ContentType[]) {
-    setBusy(types?.length === 1 ? types[0] : "all");
+  async function generate(types: ContentType[]) {
+    setBusy(types.length === 1 ? types[0] : "all");
     setError(null);
     try {
       const res = await fetch(`/api/jobs/${id}/content`, {
@@ -66,6 +66,29 @@ export default function JobDetail({ params }: { params: { id: string } }) {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       await loadContent();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Generate every type, one request each, so each call stays within the 60s
+  // free-tier function cap. Content fills in progressively.
+  async function generateAll() {
+    setBusy("all");
+    setError(null);
+    try {
+      for (const type of CONTENT_TYPES) {
+        const res = await fetch(`/api/jobs/${id}/content`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tone, types: [type] }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Failed");
+        await loadContent();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -175,7 +198,7 @@ export default function JobDetail({ params }: { params: { id: string } }) {
                 </option>
               ))}
             </select>
-            <button className="btn-primary" disabled={!!busy} onClick={() => generate()}>
+            <button className="btn-primary" disabled={!!busy} onClick={generateAll}>
               {busy === "all" ? "Generating…" : "Generate all"}
             </button>
           </div>

@@ -11,6 +11,7 @@ Dubai job application & outreach automation tool, built for one operator: **Rutv
 - **Unipile, Gmail, Twilio, Apollo credentials live in `.env.local`** — never hardcode. See `.env.local.example`.
 - **On every JD analysis, always extract Dubai/GCC relevance signals** and surface them in the fit score (`dubai_signals` + the `dubai_gcc` fit dimension). Enforced in `src/lib/jd.ts`.
 - **Keep the UI minimal and fast** — this is a daily-use tool, not a portfolio piece.
+- **Auth**: Supabase magic-link login gates the whole app via `src/middleware.ts`. Access is restricted to `ALLOWED_EMAILS` (comma-separated env). SSR clients in `src/lib/supabaseServer.ts` / `supabaseBrowser.ts`; callback at `src/app/auth/callback`. Deployment guide in `DEPLOY.md` (Vercel free tier + custom domain).
 
 ## Stack
 

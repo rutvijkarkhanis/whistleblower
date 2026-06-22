@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AuthStatus from "@/components/AuthStatus";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="text-sm font-semibold tracking-tight">
               🕵️ Whistleblower
             </Link>
-            <span className="text-xs text-slate-500">Dubai · Chief of Staff / Founder&apos;s Office</span>
+            <AuthStatus />
           </div>
         </header>
         <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>

@@ -54,15 +54,29 @@ export default function Dashboard() {
     setBulkResults([]);
     try {
       if (mode === "bulk") {
+        // Import one URL per request so each call stays within the 60s
+        // free-tier function cap; show results progressively.
         const urls = bulkUrls.split(/\s*\n\s*/).map((u) => u.trim()).filter(Boolean);
-        const res = await fetch("/api/jobs/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ urls }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Failed");
-        setBulkResults(json.results ?? []);
+        for (const url of urls) {
+          try {
+            const res = await fetch("/api/jobs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ jd_url: url }),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error ?? "Failed");
+            setBulkResults((prev) => [
+              ...prev,
+              { url, ok: true, role_title: json.job.role_title, fit_score: json.job.fit_score },
+            ]);
+          } catch (err) {
+            setBulkResults((prev) => [
+              ...prev,
+              { url, ok: false, error: err instanceof Error ? err.message : "Failed" },
+            ]);
+          }
+        }
         setBulkUrls("");
       } else {
         const body = mode === "url" ? { jd_url: jdUrl } : { jd_text: jdText };
