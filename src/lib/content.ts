@@ -1,4 +1,4 @@
-import { generateText } from "./anthropic";
+import { generateText } from "./llm";
 import { SYSTEM_PREAMBLE } from "./profile";
 import type { ContentType, Job, Tone } from "./types";
 

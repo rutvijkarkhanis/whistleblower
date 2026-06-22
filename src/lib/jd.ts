@@ -1,4 +1,4 @@
-import { generateJson } from "./anthropic";
+import { generateJson } from "./llm";
 import { detectSource, fetchJobFromUrl } from "./portals";
 import { SYSTEM_PREAMBLE } from "./profile";
 import { serviceClient } from "./supabase";

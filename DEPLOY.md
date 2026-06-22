@@ -38,8 +38,14 @@ This repo is already on the `claude/epic-galileo-e7gp3a` branch. Merge it to
    | `NEXT_PUBLIC_SUPABASE_URL` | from Supabase |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | from Supabase |
    | `SUPABASE_SERVICE_ROLE_KEY` | from Supabase (secret) |
-   | `ANTHROPIC_API_KEY` | your Anthropic key |
+   | `LLM_PROVIDER` | `gemini` |
+   | `GEMINI_API_KEY` | free key from [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
    | `ALLOWED_EMAILS` | `rutvij.karkhanis@gmail.com` (comma-separate if more) |
+
+   > **AI provider is free by default (Gemini).** Get a key at
+   > [Google AI Studio](https://aistudio.google.com/app/apikey) → "Create API key"
+   > — no billing required. To use Claude instead, set `LLM_PROVIDER=anthropic`
+   > and `ANTHROPIC_API_KEY=…` (paid); for Groq, `LLM_PROVIDER=groq` + `GROQ_API_KEY`.
 
 4. **Deploy.** You'll get a `*.vercel.app` URL.
 

@@ -4,8 +4,8 @@ Dubai job application & outreach automation tool, built for one operator: **Rutv
 
 ## Operating rules (non-negotiable)
 
-- **Always load Rutvij's profile context** into every Anthropic call. Never generate generic output. The profile lives in `src/lib/profile.ts` (`PROFILE_TEXT` / `SYSTEM_PREAMBLE`) and is mirrored in `supabase/migrations/0002_seed.sql`. Keep them in sync.
-- **All Claude API calls use `model: "claude-sonnet-4-6"`** — defined once in `src/lib/anthropic.ts` (`MODEL`). Do not hardcode model strings elsewhere.
+- **Always load Rutvij's profile context** into every LLM call. Never generate generic output. The profile lives in `src/lib/profile.ts` (`PROFILE_TEXT` / `SYSTEM_PREAMBLE`) and is mirrored in `supabase/migrations/0002_seed.sql`. Keep them in sync.
+- **LLM access goes through `src/lib/llm.ts`** (`generateText` / `generateJson`). Provider is set by `LLM_PROVIDER` (`gemini` default/free · `anthropic` · `groq`); models are env-overridable. Do not call a provider SDK or hardcode model strings elsewhere.
 - **Supabase**: server-side client initialized with the **service role key for mutations** (`serviceClient()`), **anon key for client reads** (`anonClient()`). Both in `src/lib/supabase.ts`. Never import `serviceClient` into a browser bundle.
 - **n8n** runs locally on port `5678`; the webhook base URL is configurable via `N8N_WEBHOOK_BASE_URL`.
 - **Unipile, Gmail, Twilio, Apollo credentials live in `.env.local`** — never hardcode. See `.env.local.example`.
@@ -15,7 +15,7 @@ Dubai job application & outreach automation tool, built for one operator: **Rutv
 
 ## Stack
 
-Next.js 14 (App Router) + TypeScript · Supabase (auth/db/storage) · Anthropic `claude-sonnet-4-6` · n8n · Unipile · Gmail API · Twilio · Tailwind.
+Next.js 14 (App Router) + TypeScript · Supabase (auth/db/storage) · LLM via `src/lib/llm.ts` (Gemini free default / Anthropic / Groq) · n8n · Unipile · Gmail API · Twilio · Tailwind.
 
 ## Module status
 
@@ -31,7 +31,7 @@ Next.js 14 (App Router) + TypeScript · Supabase (auth/db/storage) · Anthropic 
 ## Layout
 
 ```
-src/lib/        profile, supabase, anthropic clients; portals (URL import) + jd (M1) + content (M2) logic; types
+src/lib/        profile, supabase clients, llm (provider layer); portals (URL import) + jd (M1) + content (M2) logic; types
 src/app/api/    jobs, jobs/import, jobs/[id], jobs/[id]/content, content/[id], scrape, reminders, reminders/[id]
 src/app/        dashboard (page.tsx) + job detail (jobs/[id]/page.tsx)
 supabase/migrations/  0001_init.sql (8 tables + reminders), 0002_seed.sql (profile + AED benchmarks)
@@ -40,7 +40,7 @@ supabase/migrations/  0001_init.sql (8 tables + reminders), 0002_seed.sql (profi
 ## Setup
 
 1. `npm install`
-2. `cp .env.local.example .env.local` and fill Supabase + `ANTHROPIC_API_KEY`.
+2. `cp .env.local.example .env.local` and fill Supabase + an LLM key (default `LLM_PROVIDER=gemini` + `GEMINI_API_KEY`).
 3. Apply migrations to your Supabase project (SQL editor or `supabase db push`).
 4. `npm run dev`.
 
