@@ -51,6 +51,9 @@ async function geminiGenerate(system: string, user: string, maxTokens: number, j
       contents: [{ role: "user", parts: [{ text: user }] }],
       generationConfig: {
         maxOutputTokens: maxTokens,
+        // Gemini 2.5 models think by default, which eats the output budget and
+        // can return no usable text. Disable it for fast, deterministic output.
+        thinkingConfig: { thinkingBudget: 0 },
         ...(json ? { responseMimeType: "application/json" } : {}),
       },
     }),
