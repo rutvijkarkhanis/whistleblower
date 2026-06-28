@@ -11,7 +11,7 @@ type Provider = "gemini" | "anthropic" | "groq";
 export const PROVIDER: Provider = (process.env.LLM_PROVIDER as Provider) || "gemini";
 
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
 
 function requireEnv(name: string): string {
