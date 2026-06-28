@@ -93,21 +93,34 @@ Scoring guidance:
   });
 }
 
-// Fetch (if url) -> analyze -> store. Shared by single + bulk import.
-export async function importJob(input: { jd_text?: string; jd_url?: string }): Promise<Job> {
+// Fetch (if url) -> analyze -> store. Shared by manual, URL, bulk + discovery import.
+export async function importJob(input: {
+  jd_text?: string;
+  jd_url?: string;
+  source?: string;
+  company?: string;
+  role_title?: string;
+  location?: string;
+}): Promise<Job> {
   let jdText = input.jd_text;
-  let source: string | undefined;
-  let location: string | undefined;
-  let companyHint: string | undefined;
-  let titleHint: string | undefined;
+  let source = input.source;
+  let location = input.location;
+  let companyHint = input.company;
+  let titleHint = input.role_title;
 
-  if (!jdText && input.jd_url) {
-    const parsed = await fetchJobFromUrl(input.jd_url);
-    jdText = parsed.jd_text;
-    source = parsed.source;
-    location = parsed.location;
-    companyHint = parsed.company;
-    titleHint = parsed.role_title;
+  if (input.jd_url) {
+    try {
+      const parsed = await fetchJobFromUrl(input.jd_url);
+      // Prefer the richer JD (full page beats an aggregator snippet).
+      if (!jdText || parsed.jd_text.length > jdText.length) jdText = parsed.jd_text;
+      source = source ?? parsed.source;
+      location = location ?? parsed.location;
+      companyHint = companyHint ?? parsed.company;
+      titleHint = titleHint ?? parsed.role_title;
+    } catch (err) {
+      // No fallback snippet → surface the fetch error; otherwise keep the snippet.
+      if (!jdText || jdText.trim().length < 40) throw err;
+    }
   }
   if (!jdText || jdText.trim().length < 40) {
     throw new Error("Provide jd_text or a scrapeable jd_url");

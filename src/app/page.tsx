@@ -122,6 +122,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Link href="/discover" className="btn-ghost text-xs">
+          🔍 Discover jobs
+        </Link>
+      </div>
+
       {/* Module 1 — JD intake */}
       <section className="card p-4">
         <div className="mb-3 flex items-center justify-between">

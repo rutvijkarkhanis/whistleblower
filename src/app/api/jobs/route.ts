@@ -17,7 +17,14 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const job = await importJob({ jd_text: body.jd_text, jd_url: body.jd_url });
+    const job = await importJob({
+      jd_text: body.jd_text,
+      jd_url: body.jd_url,
+      source: body.source,
+      company: body.company,
+      role_title: body.role_title,
+      location: body.location,
+    });
     return NextResponse.json({ job });
   } catch (err) {
     return NextResponse.json(

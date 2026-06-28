@@ -21,7 +21,7 @@ Next.js 14 (App Router) + TypeScript · Supabase (auth/db/storage) · LLM via `s
 
 | Module | What | Status |
 |---|---|---|
-| 1 — JD Intelligence | paste / single-URL / bulk-URL import (portal-aware: LinkedIn, Indeed, Bayt, GulfTalent, Naukri Gulf, Greenhouse, Lever, Ashby via JSON-LD) → extract + fit score → `jobs` | ✅ built |
+| 1 — JD Intelligence | paste / single-URL / bulk-URL import (portal-aware: LinkedIn, Indeed, Bayt, GulfTalent, Naukri Gulf, Greenhouse, Lever, Ashby via JSON-LD) + **Discover** (Adzuna UAE search, `/discover`) → extract + fit score → `jobs` | ✅ built |
 | 2 — Content Generation | cover letter, LinkedIn DMs, cold email seq, WhatsApp, interview STAR, salary script → `generated_content` | ✅ built |
 | 3 — Outreach Automation | sequence builder, Unipile/Gmail/Twilio sends, `outreach_log`, reply webhooks | ⏳ schema ready; **LinkedIn outreach + sends need Unipile/Gmail/Twilio (paid) — confirm before enabling** |
 | 4 — Pipeline CRM | Kanban (drag between stages), per-job notes, follow-up reminders on dashboard | ✅ built |
