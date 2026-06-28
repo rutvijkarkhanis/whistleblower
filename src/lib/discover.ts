@@ -50,16 +50,23 @@ interface SearchOpts {
   maxDaysOld?: number;
 }
 
+export interface DiscoverResponse {
+  results: DiscoverResult[];
+  total: number;
+  provider: string;
+}
+
 // --- Jooble (UAE-capable) ----------------------------------------------------
-async function searchJooble(opts: SearchOpts): Promise<DiscoverResult[]> {
+async function searchJooble(opts: SearchOpts): Promise<DiscoverResponse> {
   const key = process.env.JOOBLE_API_KEY!;
   const res = await fetch(`https://jooble.org/api/${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ keywords: opts.what, location: opts.where || "Dubai" }),
+    body: JSON.stringify({ keywords: opts.what, location: opts.where || "" }),
   });
   if (!res.ok) throw new Error(`Jooble error ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = (await res.json()) as {
+    totalCount?: number;
     jobs?: {
       id?: string | number;
       title?: string;
@@ -71,7 +78,7 @@ async function searchJooble(opts: SearchOpts): Promise<DiscoverResult[]> {
       updated?: string;
     }[];
   };
-  return (data.jobs ?? []).map((j) => ({
+  const results = (data.jobs ?? []).map((j) => ({
     external_id: String(j.id ?? j.link ?? Math.random()),
     title: stripHtml(j.title ?? ""),
     company: j.company || "Unknown",
@@ -81,10 +88,11 @@ async function searchJooble(opts: SearchOpts): Promise<DiscoverResult[]> {
     created: j.updated ?? null,
     salary: j.salary || null,
   }));
+  return { results, total: data.totalCount ?? results.length, provider: "Jooble" };
 }
 
 // --- Adzuna (fallback, non-UAE markets) --------------------------------------
-async function searchAdzuna(opts: SearchOpts): Promise<DiscoverResult[]> {
+async function searchAdzuna(opts: SearchOpts): Promise<DiscoverResponse> {
   const appId = process.env.ADZUNA_APP_ID!;
   const appKey = process.env.ADZUNA_APP_KEY!;
   const country = (opts.country || "gb").toLowerCase();
@@ -106,6 +114,7 @@ async function searchAdzuna(opts: SearchOpts): Promise<DiscoverResult[]> {
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`Adzuna error ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = (await res.json()) as {
+    count?: number;
     results?: {
       id?: string | number;
       title?: string;
@@ -118,7 +127,7 @@ async function searchAdzuna(opts: SearchOpts): Promise<DiscoverResult[]> {
       salary_max?: number;
     }[];
   };
-  return (data.results ?? []).map((r) => ({
+  const results = (data.results ?? []).map((r) => ({
     external_id: String(r.id ?? r.redirect_url ?? Math.random()),
     title: stripHtml(r.title ?? ""),
     company: r.company?.display_name ?? "Unknown",
@@ -126,15 +135,13 @@ async function searchAdzuna(opts: SearchOpts): Promise<DiscoverResult[]> {
     description: stripHtml(r.description ?? ""),
     url: r.redirect_url ?? "",
     created: r.created ?? null,
-    salary:
-      r.salary_min || r.salary_max
-        ? `${r.salary_min ?? "?"}–${r.salary_max ?? "?"}`
-        : null,
+    salary: r.salary_min || r.salary_max ? `${r.salary_min ?? "?"}–${r.salary_max ?? "?"}` : null,
   }));
+  return { results, total: data.count ?? results.length, provider: "Adzuna" };
 }
 
 // Provider selection: Jooble first (UAE-capable), else Adzuna.
-export async function discoverJobs(opts: SearchOpts): Promise<DiscoverResult[]> {
+export async function discoverJobs(opts: SearchOpts): Promise<DiscoverResponse> {
   if (joobleConfigured()) return searchJooble(opts);
   if (adzunaConfigured()) return searchAdzuna(opts);
   throw new Error("No discovery provider configured — add JOOBLE_API_KEY (covers UAE).");

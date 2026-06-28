@@ -41,14 +41,15 @@ export default function Discover() {
       if (!res.ok) throw new Error(json.error ?? "Search failed");
       const results: Row[] = json.results ?? [];
       setRows(results);
+      const total = json.total ?? results.length;
       setStatus(
         results.length === 0
-          ? `No results via ${json.provider ?? "?"} for "${what}" in ${where}. ${
+          ? `${json.provider ?? "?"} reported ${total} total matches for "${what}" in ${where || "anywhere"}. ${
               json.provider === "Adzuna"
                 ? "Adzuna doesn't cover the UAE — add a free JOOBLE_API_KEY."
-                : "Try a broader keyword or location."
+                : "Try clearing the location, or a broader keyword."
             }`
-          : `${results.length} results via ${json.provider ?? "?"}`,
+          : `${results.length} shown (of ${total}) via ${json.provider ?? "?"}`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
