@@ -28,6 +28,9 @@ export const PRESET_QUERIES = [
 
 const stripHtml = (s: string) => (s || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 
+export function careerjetConfigured(): boolean {
+  return !!process.env.CAREERJET_AFFID;
+}
 export function joobleConfigured(): boolean {
   return !!process.env.JOOBLE_API_KEY;
 }
@@ -35,7 +38,7 @@ export function adzunaConfigured(): boolean {
   return !!(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY);
 }
 export function discoverConfigured(): boolean {
-  return joobleConfigured() || adzunaConfigured();
+  return careerjetConfigured() || joobleConfigured() || adzunaConfigured();
 }
 
 // Adzuna country codes (UAE intentionally absent — not supported).
@@ -59,7 +62,10 @@ export interface DiscoverResponse {
 // --- Jooble (UAE-capable) ----------------------------------------------------
 async function searchJooble(opts: SearchOpts): Promise<DiscoverResponse> {
   const key = process.env.JOOBLE_API_KEY!;
-  const res = await fetch(`https://jooble.org/api/${key}`, {
+  // Jooble keys are region-locked to the site you registered on. For UAE jobs,
+  // set JOOBLE_HOST=ae.jooble.org (and use a key from that site).
+  const host = process.env.JOOBLE_HOST || "jooble.org";
+  const res = await fetch(`https://${host}/api/${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ keywords: opts.what, location: opts.where || "" }),
@@ -140,9 +146,59 @@ async function searchAdzuna(opts: SearchOpts): Promise<DiscoverResponse> {
   return { results, total: data.count ?? results.length, provider: "Adzuna" };
 }
 
-// Provider selection: Jooble first (UAE-capable), else Adzuna.
+// --- Careerjet (targets UAE via locale en_AE) --------------------------------
+async function searchCareerjet(opts: SearchOpts): Promise<DiscoverResponse> {
+  const affid = process.env.CAREERJET_AFFID!;
+  const locale = process.env.CAREERJET_LOCALE || "en_AE"; // en_AE = UAE
+  const params = new URLSearchParams({
+    locale_code: locale,
+    keywords: opts.what,
+    location: opts.where || "",
+    affid,
+    user_ip: "203.0.113.1",
+    user_agent: "Mozilla/5.0 (compatible; WhistleblowerBot/1.0)",
+    pagesize: "30",
+    sort: "date",
+    contenttype: "application/json",
+  });
+  const res = await fetch(`https://public.api.careerjet.net/search?${params.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`Careerjet error ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as {
+    type?: string;
+    hits?: number;
+    jobs?: {
+      title?: string;
+      description?: string;
+      company?: string;
+      salary?: string;
+      date?: string;
+      url?: string;
+      locations?: string;
+    }[];
+  };
+  // If the location is ambiguous Careerjet returns type "LOCATIONS" not "JOBS".
+  if (data.type && data.type !== "JOBS") {
+    return { results: [], total: 0, provider: "Careerjet" };
+  }
+  const results = (data.jobs ?? []).map((j) => ({
+    external_id: String(j.url ?? Math.random()),
+    title: stripHtml(j.title ?? ""),
+    company: j.company || "Unknown",
+    location: j.locations || "",
+    description: stripHtml(j.description ?? ""),
+    url: j.url ?? "",
+    created: j.date ?? null,
+    salary: j.salary || null,
+  }));
+  return { results, total: data.hits ?? results.length, provider: "Careerjet" };
+}
+
+// Provider selection: Careerjet (UAE) → Jooble → Adzuna.
 export async function discoverJobs(opts: SearchOpts): Promise<DiscoverResponse> {
+  if (careerjetConfigured()) return searchCareerjet(opts);
   if (joobleConfigured()) return searchJooble(opts);
   if (adzunaConfigured()) return searchAdzuna(opts);
-  throw new Error("No discovery provider configured — add JOOBLE_API_KEY (covers UAE).");
+  throw new Error("No discovery provider configured — add CAREERJET_AFFID or JOOBLE_API_KEY.");
 }
