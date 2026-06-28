@@ -3,6 +3,8 @@ export type Stage = "saved" | "applied" | "interviewing" | "offer" | "rejected";
 export type Tone = "executive" | "founder-to-founder" | "direct";
 
 export const CONTENT_TYPES = [
+  "tailored_resume",
+  "gap_analysis",
   "cover_letter",
   "linkedin_dm_hm",
   "linkedin_dm_recruiter",
@@ -17,6 +19,8 @@ export const CONTENT_TYPES = [
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
 export const CONTENT_LABELS: Record<ContentType, string> = {
+  tailored_resume: "Tailored Resume (ATS)",
+  gap_analysis: "Fit Gap Analysis",
   cover_letter: "Cover Letter",
   linkedin_dm_hm: "LinkedIn DM — Hiring Manager",
   linkedin_dm_recruiter: "LinkedIn DM — Recruiter",

@@ -30,6 +30,16 @@ function jobContext(job: Job): string {
 }
 
 const PROMPTS: Record<ContentType, { instruction: string; maxTokens: number }> = {
+  tailored_resume: {
+    instruction:
+      "Produce a one-page, ATS-friendly resume for Rutvij tailored to THIS specific role. Structure: (1) a 2-line headline/summary explicitly targeting the role title and Dubai; (2) a 'Core Skills' line mirroring the role's ATS keywords that he genuinely has; (3) 'Experience' — his real roles (AGM at Alex Panels & Black Cobra Group; Founder's Office at Accacia.ai; Co-founder HypeBoxed; Co-founder Career Taxi) each with 3-4 quantified bullets rewritten to foreground this role's must-haves and keywords; (4) a brief 'Other' line (AI voice agent on n8n+ElevenLabs+Twilio, The GTMer Show podcast). Use his real numbers (₹3.82Cr pipeline, GCC/EU/UK expansion, in-person Dubai lab evaluation, MAI ~50% cost recovery, Ghana market in 2 weeks, Accacia GTM stack/Zoho/US outbound, HypeBoxed ₹0→₹25L). Plain text only: simple UPPERCASE section headers and '- ' bullets, NO tables, columns, or special characters (ATS-safe). Never invent employers, titles, dates, or metrics.",
+    maxTokens: 2600,
+  },
+  gap_analysis: {
+    instruction:
+      "Give an honest fit gap analysis for Rutvij against THIS role. Start with a one-line overall read. Then, for each key must-have/requirement, write a line labelled [COVERED], [PARTIAL], or [GAP] followed by the specific evidence from his background — or the honest absence of it. Then a 'HOW TO POSITION' section: for each PARTIAL/GAP, concrete advice on how to frame his experience, what to emphasise, or what honest bridge to offer. End with 'TOP 3 TO NAIL IN THE APPLICATION'. Be truthful — surface real gaps, don't paper over them. This is strategy, not marketing.",
+    maxTokens: 2000,
+  },
   cover_letter: {
     instruction:
       "Write a 3-paragraph cover letter. Para 1: a specific hook tied to the company/role. Para 2: two or three of Rutvij's most relevant, quantified achievements mapped to the must-haves. Para 3: Dubai context + a confident close. No salutation clichés, no 'I am writing to apply'.",
