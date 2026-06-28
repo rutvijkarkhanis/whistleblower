@@ -207,7 +207,9 @@ export default function Discover() {
                       {r.company}
                       {r.location ? ` · ${r.location}` : ""}
                       {r.salary ? ` · ${r.salary}` : ""}
-                      {r.created ? ` · ${new Date(r.created).toLocaleDateString()}` : ""}
+                      {r.created
+                        ? ` · ${Number.isNaN(Date.parse(r.created)) ? r.created : new Date(r.created).toLocaleDateString()}`
+                        : ""}
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-600">{r.description}</p>
                   </div>

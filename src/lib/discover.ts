@@ -28,6 +28,9 @@ export const PRESET_QUERIES = [
 
 const stripHtml = (s: string) => (s || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
 
+export function serpapiConfigured(): boolean {
+  return !!process.env.SERPAPI_KEY;
+}
 export function careerjetConfigured(): boolean {
   return !!process.env.CAREERJET_AFFID;
 }
@@ -38,7 +41,7 @@ export function adzunaConfigured(): boolean {
   return !!(process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY);
 }
 export function discoverConfigured(): boolean {
-  return careerjetConfigured() || joobleConfigured() || adzunaConfigured();
+  return serpapiConfigured() || careerjetConfigured() || joobleConfigured() || adzunaConfigured();
 }
 
 // Adzuna country codes (UAE intentionally absent — not supported).
@@ -195,10 +198,54 @@ async function searchCareerjet(opts: SearchOpts): Promise<DiscoverResponse> {
   return { results, total: data.hits ?? results.length, provider: "Careerjet" };
 }
 
-// Provider selection: Careerjet (UAE) → Jooble → Adzuna.
+// --- SerpApi Google Jobs (aggregates LinkedIn/Indeed/Bayt/etc., key-based) ----
+async function searchSerpapi(opts: SearchOpts): Promise<DiscoverResponse> {
+  const key = process.env.SERPAPI_KEY!;
+  const q = [opts.what, opts.where].filter(Boolean).join(" ");
+  const params = new URLSearchParams({ engine: "google_jobs", q, hl: "en", api_key: key });
+  // Map recency to Google Jobs date chips.
+  const d = opts.maxDaysOld;
+  if (d) {
+    const chip = d <= 1 ? "today" : d <= 3 ? "3days" : d <= 7 ? "week" : "month";
+    params.set("chips", `date_posted:${chip}`);
+  }
+  const res = await fetch(`https://serpapi.com/search.json?${params.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    jobs_results?: {
+      job_id?: string;
+      title?: string;
+      company_name?: string;
+      location?: string;
+      description?: string;
+      detected_extensions?: { posted_at?: string; salary?: string };
+      apply_options?: { title?: string; link?: string }[];
+      related_links?: { link?: string }[];
+      share_link?: string;
+    }[];
+  };
+  if (data.error) throw new Error(`Google Jobs (SerpApi): ${data.error}`);
+
+  const results = (data.jobs_results ?? []).map((j) => ({
+    external_id: j.job_id ? j.job_id.slice(0, 64) : String(Math.random()),
+    title: stripHtml(j.title ?? ""),
+    company: j.company_name ?? "Unknown",
+    location: j.location ?? "",
+    description: stripHtml(j.description ?? ""),
+    url: j.apply_options?.[0]?.link ?? j.related_links?.[0]?.link ?? j.share_link ?? "",
+    created: j.detected_extensions?.posted_at ?? null,
+    salary: j.detected_extensions?.salary ?? null,
+  }));
+  return { results, total: results.length, provider: "Google Jobs" };
+}
+
+// Provider selection: Google Jobs (broadest) → Careerjet → Jooble → Adzuna.
 export async function discoverJobs(opts: SearchOpts): Promise<DiscoverResponse> {
+  if (serpapiConfigured()) return searchSerpapi(opts);
   if (careerjetConfigured()) return searchCareerjet(opts);
   if (joobleConfigured()) return searchJooble(opts);
   if (adzunaConfigured()) return searchAdzuna(opts);
-  throw new Error("No discovery provider configured — add CAREERJET_AFFID or JOOBLE_API_KEY.");
+  throw new Error("No discovery provider configured — add SERPAPI_KEY (Google Jobs).");
 }
