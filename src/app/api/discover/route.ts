@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adzunaConfigured, searchAdzuna } from "@/lib/discover";
+import { discoverConfigured, discoverJobs } from "@/lib/discover";
 import { serviceClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -8,9 +8,9 @@ export const maxDuration = 30;
 // GET /api/discover?what=Chief of Staff&where=Dubai&days=30
 // Returns live listings, flagging any already in your pipeline (by url).
 export async function GET(req: Request) {
-  if (!adzunaConfigured()) {
+  if (!discoverConfigured()) {
     return NextResponse.json(
-      { error: "Adzuna not configured — add ADZUNA_APP_ID and ADZUNA_APP_KEY in your env." },
+      { error: "No discovery provider configured — add JOOBLE_API_KEY (free, covers UAE) in your env." },
       { status: 400 },
     );
   }
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   if (!what) return NextResponse.json({ error: "what is required" }, { status: 400 });
 
   try {
-    const results = await searchAdzuna({ what, where, maxDaysOld: days, resultsPerPage: 30 });
+    const results = await discoverJobs({ what, where, maxDaysOld: days });
 
     // Flag results already imported (dedupe by jd_url).
     const db = serviceClient();

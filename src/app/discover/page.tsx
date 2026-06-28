@@ -13,8 +13,7 @@ interface Row {
   description: string;
   url: string;
   created: string | null;
-  salary_min: number | null;
-  salary_max: number | null;
+  salary: string | null;
   already?: boolean;
 }
 
@@ -125,7 +124,7 @@ export default function Discover() {
           ))}
         </div>
         <p className="mt-2 text-[11px] text-slate-400">
-          Live listings via Adzuna (UAE). Import runs the full fit-score analysis on each.
+          Live listings via Jooble (covers Dubai/UAE). Import runs the full fit-score analysis on each.
         </p>
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
       </section>
@@ -144,6 +143,7 @@ export default function Discover() {
                     <div className="text-xs text-slate-500">
                       {r.company}
                       {r.location ? ` · ${r.location}` : ""}
+                      {r.salary ? ` · ${r.salary}` : ""}
                       {r.created ? ` · ${new Date(r.created).toLocaleDateString()}` : ""}
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-600">{r.description}</p>
