@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const PRESETS = ["Chief of Staff", "Founder's Office", "Head of Growth", "COO", "General Manager"];
+const COMPANIES_KEY = "wb_watch_companies";
 
 interface Row {
   external_id: string;
@@ -20,14 +21,25 @@ interface Row {
 type ImportState = { status: "idle" | "importing" | "done" | "error"; fit?: number | null; job_id?: string; error?: string };
 
 export default function Discover() {
+  const [mode, setMode] = useState<"boards" | "aggregator">("boards");
   const [what, setWhat] = useState("Chief of Staff");
   const [where, setWhere] = useState("Dubai");
   const [days, setDays] = useState(30);
+  const [companies, setCompanies] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [imports, setImports] = useState<Record<string, ImportState>>({});
+
+  // Persist the company watchlist locally so it survives reloads.
+  useEffect(() => {
+    const saved = localStorage.getItem(COMPANIES_KEY);
+    if (saved) setCompanies(saved);
+  }, []);
+  useEffect(() => {
+    if (companies) localStorage.setItem(COMPANIES_KEY, companies);
+  }, [companies]);
 
   async function search() {
     setSearching(true);
@@ -35,8 +47,12 @@ export default function Discover() {
     setStatus(null);
     setRows([]);
     try {
-      const qs = new URLSearchParams({ what, where, days: String(days) });
-      const res = await fetch(`/api/discover?${qs.toString()}`);
+      const qs =
+        mode === "boards"
+          ? new URLSearchParams({ companies, what: what === "(any role)" ? "" : what, where })
+          : new URLSearchParams({ what, where, days: String(days) });
+      const endpoint = mode === "boards" ? "/api/boards" : "/api/discover";
+      const res = await fetch(`${endpoint}?${qs.toString()}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Search failed");
       const results: Row[] = json.results ?? [];
@@ -44,12 +60,14 @@ export default function Discover() {
       const total = json.total ?? results.length;
       setStatus(
         results.length === 0
-          ? `${json.provider ?? "?"} reported ${total} total matches for "${what}" in ${where || "anywhere"}. ${
-              json.provider === "Adzuna"
-                ? "Adzuna doesn't cover the UAE — add a free JOOBLE_API_KEY."
-                : "Try clearing the location, or a broader keyword."
-            }`
-          : `${results.length} shown (of ${total}) via ${json.provider ?? "?"}`,
+          ? mode === "boards"
+            ? `No matching roles from those boards${where ? ` in ${where}` : ""}. Try clearing the location/keyword, or check the company slugs.`
+            : `${json.provider ?? "?"} reported ${total} total matches for "${what}" in ${where || "anywhere"}. ${
+                json.provider === "Adzuna"
+                  ? "Adzuna doesn't cover the UAE."
+                  : "Try clearing the location, or a broader keyword."
+              }`
+          : `${results.length} role${results.length === 1 ? "" : "s"} via ${json.provider ?? "?"}`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
@@ -67,7 +85,6 @@ export default function Discover() {
         body: JSON.stringify({
           jd_text: r.description,
           jd_url: r.url,
-          source: "Adzuna",
           company: r.company,
           role_title: r.title,
           location: r.location,
@@ -96,15 +113,46 @@ export default function Discover() {
         </Link>
       </div>
 
+      {/* Mode toggle */}
+      <div className="flex gap-1 text-xs">
+        <button
+          className={`rounded px-3 py-1 ${mode === "boards" ? "bg-ink text-white" : "bg-slate-100"}`}
+          onClick={() => setMode("boards")}
+        >
+          Company boards
+        </button>
+        <button
+          className={`rounded px-3 py-1 ${mode === "aggregator" ? "bg-ink text-white" : "bg-slate-100"}`}
+          onClick={() => setMode("aggregator")}
+        >
+          Aggregator
+        </button>
+      </div>
+
       {/* Search controls */}
       <section className="card p-4">
+        {mode === "boards" && (
+          <div className="mb-3">
+            <label className="text-xs font-medium text-slate-600">Company watchlist</label>
+            <textarea
+              className="input mt-1 h-24 font-mono text-xs"
+              placeholder={"One company per line — a careers URL or platform:slug, e.g.\ngreenhouse:careem\nlever:talabat\nhttps://jobs.ashbyhq.com/tabby"}
+              value={companies}
+              onChange={(e) => setCompanies(e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Pulls live roles straight from Greenhouse / Lever / Ashby boards — no key, no limits. Saved on this device.
+            </p>
+          </div>
+        )}
+
         <div className="flex flex-wrap gap-2">
           <input
             className="input flex-1"
-            placeholder="Role keyword (e.g. Chief of Staff)"
+            placeholder={mode === "boards" ? "Filter by role keyword (optional)" : "Role keyword (e.g. Chief of Staff)"}
             value={what}
             onChange={(e) => setWhat(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && what.trim() && search()}
+            onKeyDown={(e) => e.key === "Enter" && search()}
           />
           <input
             className="input w-32"
@@ -112,33 +160,34 @@ export default function Discover() {
             value={where}
             onChange={(e) => setWhere(e.target.value)}
           />
-          <select
-            className="rounded-md border border-slate-300 px-2 text-sm"
-            value={days}
-            onChange={(e) => setDays(Number(e.target.value))}
+          {mode === "aggregator" && (
+            <select
+              className="rounded-md border border-slate-300 px-2 text-sm"
+              value={days}
+              onChange={(e) => setDays(Number(e.target.value))}
+            >
+              <option value={7}>7 days</option>
+              <option value={30}>30 days</option>
+              <option value={90}>90 days</option>
+            </select>
+          )}
+          <button
+            className="btn-primary"
+            disabled={searching || (mode === "boards" ? !companies.trim() : !what.trim())}
+            onClick={search}
           >
-            <option value={7}>7 days</option>
-            <option value={30}>30 days</option>
-            <option value={90}>90 days</option>
-          </select>
-          <button className="btn-primary" disabled={searching || !what.trim()} onClick={search}>
-            {searching ? "Searching…" : "Find jobs"}
+            {searching ? "Searching…" : mode === "boards" ? "Pull roles" : "Find jobs"}
           </button>
         </div>
+
         <div className="mt-2 flex flex-wrap gap-1">
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              className={`chip ${what === p ? "bg-ink text-white" : ""}`}
-              onClick={() => setWhat(p)}
-            >
+          {(mode === "boards" ? ["(any role)", ...PRESETS] : PRESETS).map((p) => (
+            <button key={p} className={`chip ${what === p ? "bg-ink text-white" : ""}`} onClick={() => setWhat(p)}>
               {p}
             </button>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-slate-400">
-          Live listings via Jooble (covers Dubai/UAE). Import runs the full fit-score analysis on each.
-        </p>
+
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
         {status && !error && <p className="mt-2 text-xs text-slate-500">{status}</p>}
       </section>
