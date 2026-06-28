@@ -105,15 +105,26 @@ export default function JobDetail({ params }: { params: { id: string } }) {
     loadJob();
   }
 
+  async function deleteJob() {
+    if (!confirm("Delete this job and all its generated content? This can't be undone.")) return;
+    await fetch(`/api/jobs/${id}`, { method: "DELETE" });
+    window.location.href = "/";
+  }
+
   if (!job) return <p className="text-sm text-slate-500">Loading…</p>;
 
   const fit = job.fit_breakdown_json;
 
   return (
     <div className="space-y-6">
-      <Link href="/" className="text-xs text-slate-500 hover:underline">
-        ← Pipeline
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/" className="text-xs text-slate-500 hover:underline">
+          ← Pipeline
+        </Link>
+        <button onClick={deleteJob} className="text-xs text-slate-400 hover:text-red-600">
+          Delete job
+        </button>
+      </div>
 
       {/* Header + fit */}
       <section className="card p-4">

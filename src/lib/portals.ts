@@ -154,6 +154,30 @@ export function parseJobPage(url: string, html: string): ParsedJob {
   };
 }
 
+// Detect login walls, bot blocks, and JS-only shells masquerading as content.
+function looksLikeWall(text: string): boolean {
+  if (text.length < 220) return true;
+  const t = text.toLowerCase();
+  const wall = [
+    "sign in to",
+    "join linkedin",
+    "you’re signed out",
+    "you're signed out",
+    "create your free account",
+    "please enable javascript",
+    "enable javascript to",
+    "access to this page has been denied",
+    "verify you are a human",
+    "are you a robot",
+    "captcha",
+  ].some((m) => t.includes(m));
+  const jdSignal =
+    /responsibilit|requirement|qualif|what you.?ll|about the role|we are looking|years of experience|role overview|key duties/i.test(
+      text,
+    );
+  return wall && !jdSignal;
+}
+
 export async function fetchJobFromUrl(url: string): Promise<ParsedJob> {
   const res = await fetch(url, {
     headers: {
@@ -166,9 +190,9 @@ export async function fetchJobFromUrl(url: string): Promise<ParsedJob> {
   if (!res.ok) throw new Error(`Failed to fetch (${res.status})`);
   const html = await res.text();
   const parsed = parseJobPage(url, html);
-  if (!parsed.jd_text || parsed.jd_text.length < 40) {
+  if (!parsed.jd_text || looksLikeWall(parsed.jd_text)) {
     throw new Error(
-      `${parsed.source} returned no readable job text (login wall or JS-only page). Paste the JD text instead.`,
+      `${parsed.source} returned a login/blocked page, not the job text. Open the post, copy the description, and use "Paste text" instead.`,
     );
   }
   return parsed;
