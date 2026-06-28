@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { discoverConfigured, discoverJobs } from "@/lib/discover";
+import { adzunaConfigured, discoverConfigured, discoverJobs, joobleConfigured } from "@/lib/discover";
 import { serviceClient } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -29,8 +29,9 @@ export async function GET(req: Request) {
     const { data: existing } = await db.from("jobs").select("jd_url");
     const seen = new Set((existing ?? []).map((j: { jd_url: string | null }) => j.jd_url).filter(Boolean));
     const flagged = results.map((r) => ({ ...r, already: seen.has(r.url) }));
+    const provider = joobleConfigured() ? "Jooble" : adzunaConfigured() ? "Adzuna" : "none";
 
-    return NextResponse.json({ results: flagged });
+    return NextResponse.json({ results: flagged, provider });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Search failed" },

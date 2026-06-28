@@ -26,18 +26,30 @@ export default function Discover() {
   const [rows, setRows] = useState<Row[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [imports, setImports] = useState<Record<string, ImportState>>({});
 
   async function search() {
     setSearching(true);
     setError(null);
+    setStatus(null);
     setRows([]);
     try {
       const qs = new URLSearchParams({ what, where, days: String(days) });
       const res = await fetch(`/api/discover?${qs.toString()}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Search failed");
-      setRows(json.results ?? []);
+      const results: Row[] = json.results ?? [];
+      setRows(results);
+      setStatus(
+        results.length === 0
+          ? `No results via ${json.provider ?? "?"} for "${what}" in ${where}. ${
+              json.provider === "Adzuna"
+                ? "Adzuna doesn't cover the UAE — add a free JOOBLE_API_KEY."
+                : "Try a broader keyword or location."
+            }`
+          : `${results.length} results via ${json.provider ?? "?"}`,
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
     } finally {
@@ -127,6 +139,7 @@ export default function Discover() {
           Live listings via Jooble (covers Dubai/UAE). Import runs the full fit-score analysis on each.
         </p>
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+        {status && !error && <p className="mt-2 text-xs text-slate-500">{status}</p>}
       </section>
 
       {/* Results */}
